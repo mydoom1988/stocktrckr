@@ -140,19 +140,15 @@ function renderQuotes(data) {
 
   quoteTiles.innerHTML = Object.entries(grouped)
     .map(([sector, sectorQuotes]) => `
-      <section class="sector">
-        <h3>${sector}</h3>
-        <div class="tile-grid">
-          ${sectorQuotes.map(renderTile).join("")}
-        </div>
-      </section>
+      <div class="sector-label">${sector}</div>
+      ${sectorQuotes.map(renderTile).join("")}
     `)
     .join("");
 }
 
 function renderTile(quote) {
   const intensity = Math.min(Math.abs(quote.changePercent || 0), 12);
-  const size = Math.max(1, Math.min(6, Math.round(intensity / 2) + 1));
+  const size = Math.max(1, Math.min(6, Math.ceil(intensity / 3) + 1));
   const percentPrefix = quote.changePercent > 0 ? "+" : "";
   const title = `${quote.symbol} ${formatChange(quote.change, quote.changePercent)} ${formatMoney(quote.price, quote.currency)}`;
 
@@ -224,6 +220,8 @@ clearButton.addEventListener("click", () => {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  tickerInput.value = sampleTickers;
+  const urlSymbols = new URLSearchParams(window.location.search).get("symbols");
+  tickerInput.value = urlSymbols || sampleTickers;
   if (window.lucide) window.lucide.createIcons();
+  if (urlSymbols) scanTickers();
 });

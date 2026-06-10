@@ -238,43 +238,35 @@ button:focus-visible,
 
 .heatmap-shell {
   background: #15191f;
-  padding: 10px;
-  min-height: 520px;
+  padding: 8px;
+  min-height: 280px;
 }
 
 .heatmap {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  grid-auto-rows: 54px;
   grid-auto-flow: dense;
-  gap: 8px;
+  gap: 3px;
 }
 
-.sector {
-  min-height: 190px;
+.sector-label {
   background: #20252d;
   border: 1px solid #353c46;
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-
-.sector h3 {
-  margin: 0;
-  padding: 7px 8px;
   color: #aeb7c2;
-  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1;
+  text-overflow: ellipsis;
   text-transform: uppercase;
-}
-
-.tile-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-auto-rows: 58px;
-  grid-auto-flow: dense;
-  gap: 3px;
-  padding: 3px;
+  white-space: nowrap;
+  grid-column: span 2;
 }
 
 .stock-tile {
@@ -286,7 +278,7 @@ button:focus-visible,
   align-content: center;
   justify-items: center;
   overflow: hidden;
-  padding: 7px;
+  padding: 5px;
   text-align: center;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
@@ -309,33 +301,33 @@ button:focus-visible,
 }
 
 .size-2 {
-  grid-column: span 2;
+  grid-column: span 1;
   grid-row: span 1;
 }
 
 .size-3 {
   grid-column: span 2;
-  grid-row: span 2;
+  grid-row: span 1;
 }
 
 .size-4,
 .size-5,
 .size-6 {
-  grid-column: span 3;
+  grid-column: span 2;
   grid-row: span 2;
 }
 
 .tile-symbol {
   max-width: 100%;
-  font-size: clamp(0.9rem, 2.4vw, 1.8rem);
+  font-size: 1rem;
   font-weight: 950;
   line-height: 1;
   overflow-wrap: anywhere;
 }
 
 .tile-percent {
-  margin-top: 5px;
-  font-size: clamp(0.72rem, 1.5vw, 1.05rem);
+  margin-top: 4px;
+  font-size: 0.78rem;
   font-weight: 900;
 }
 
@@ -348,33 +340,44 @@ button:focus-visible,
 }
 
 .tile-price {
-  margin-top: 4px;
+  margin-top: 3px;
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
 .tile-name {
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.68rem;
-}
-
-.size-1 {
-  padding: 5px;
-}
-
-.size-1 .tile-symbol {
-  font-size: 0.92rem;
-}
-
-.size-1 .tile-percent {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
 }
 
 .size-1 .tile-price,
 .size-1 .tile-name,
+.size-2 .tile-price,
 .size-2 .tile-name {
   display: none;
+}
+
+.size-1 .tile-symbol,
+.size-2 .tile-symbol {
+  font-size: 0.9rem;
+}
+
+.size-1 .tile-percent,
+.size-2 .tile-percent {
+  font-size: 0.68rem;
+}
+
+.size-4 .tile-symbol,
+.size-5 .tile-symbol,
+.size-6 .tile-symbol {
+  font-size: 1.55rem;
+}
+
+.size-4 .tile-percent,
+.size-5 .tile-percent,
+.size-6 .tile-percent {
+  font-size: 0.95rem;
 }
 
 .empty-state {
@@ -420,16 +423,6 @@ button:focus-visible,
   }
 
   .heatmap {
-    grid-template-columns: 1fr;
-  }
-
-  .tile-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .size-4,
-  .size-5,
-  .size-6 {
-    grid-column: span 2;
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
   }
 }
