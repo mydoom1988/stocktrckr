@@ -21,10 +21,19 @@ const sectorMap = {
   AVGO: "Technology",
   ORCL: "Technology",
   CRM: "Technology",
+  LSMC: "Technology",
+  MU: "Technology",
+  WDC: "Technology",
+  ICHR: "Technology",
+  AAOI: "Technology",
+  SHMD: "Technology",
   TSLA: "Auto & Manufacturing",
   F: "Auto & Manufacturing",
   GM: "Auto & Manufacturing",
   TM: "Auto & Manufacturing",
+  GNRC: "Auto & Manufacturing",
+  ABB: "Industrials",
+  RHM: "Industrials",
   AMZN: "Consumer",
   WMT: "Consumer",
   COST: "Consumer",
@@ -60,6 +69,8 @@ const sectorMap = {
   JD: "International",
   PDD: "International",
   TSM: "International",
+  EUNL: "ETF",
+  NBIS: "Technology",
 };
 
 function parseTickers(text) {

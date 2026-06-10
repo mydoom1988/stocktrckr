@@ -4,6 +4,11 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
+const SYMBOL_ALIASES = {
+  ABB: ["ABBN.SW", "ABBNY"],
+  EUNL: ["EUNL.DE"],
+  LSMC: ["LSMC.DE"],
+};
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -31,7 +36,8 @@ function toQuoteView(symbol, chart) {
   const changePercent = previousClose ? (change / previousClose) * 100 : 0;
 
   return {
-    symbol: meta.symbol || symbol,
+    symbol,
+    providerSymbol: meta.symbol || symbol,
     name: meta.longName || meta.shortName || meta.symbol || symbol,
     exchange: meta.fullExchangeName || meta.exchangeName || "Market",
     currency: meta.currency || "USD",
@@ -45,8 +51,8 @@ function toQuoteView(symbol, chart) {
   };
 }
 
-async function fetchChartQuote(symbol) {
-  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol(symbol))}`);
+async function fetchChart(providerSymbol, displaySymbol) {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol(providerSymbol))}`);
   url.searchParams.set("range", "5d");
   url.searchParams.set("interval", "1d");
 
@@ -68,7 +74,51 @@ async function fetchChartQuote(symbol) {
     throw new Error(data.chart?.error?.description || "No chart data returned");
   }
 
-  return toQuoteView(symbol, chart);
+  return toQuoteView(displaySymbol, chart);
+}
+
+async function findYahooSymbol(symbol) {
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", symbol);
+  url.searchParams.set("quotesCount", "8");
+  url.searchParams.set("newsCount", "0");
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "stocktrckr/1.0",
+      "Accept": "application/json",
+    },
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const quotes = data.quotes || [];
+  const exact = quotes.find((quote) => quote.symbol?.toUpperCase() === symbol);
+  const sameRoot = quotes.find((quote) => quote.symbol?.toUpperCase().startsWith(`${symbol}.`));
+  const sameRootDash = quotes.find((quote) => quote.symbol?.toUpperCase().startsWith(`${symbol}-`));
+  const firstYahooQuote = quotes.find((quote) => quote.isYahooFinance && quote.symbol);
+
+  return exact?.symbol || sameRoot?.symbol || sameRootDash?.symbol || firstYahooQuote?.symbol || null;
+}
+
+async function fetchChartQuote(symbol) {
+  const candidates = [symbol, ...(SYMBOL_ALIASES[symbol] || [])];
+
+  for (const candidate of candidates) {
+    try {
+      return await fetchChart(candidate, symbol);
+    } catch (error) {
+      // Try the next known venue-specific symbol.
+    }
+  }
+
+  const searchedSymbol = await findYahooSymbol(symbol);
+  if (searchedSymbol && !candidates.includes(searchedSymbol)) {
+    return fetchChart(searchedSymbol, symbol);
+  }
+
+  throw new Error(`No data found for ${symbol}`);
 }
 
 app.get("/api/quotes", async (req, res) => {
