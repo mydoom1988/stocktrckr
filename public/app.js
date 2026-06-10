@@ -7,10 +7,8 @@ const quoteTiles = document.querySelector("#quoteTiles");
 const statusText = document.querySelector("#statusText");
 const missingSymbols = document.querySelector("#missingSymbols");
 const updatedAt = document.querySelector("#updatedAt");
-const greenCount = document.querySelector("#greenCount");
-const redCount = document.querySelector("#redCount");
-const flatCount = document.querySelector("#flatCount");
 
+const savedTickersKey = "stocktrckr.tickers";
 const sampleTickers = "AAPL, MSFT, NVDA, TSLA, AMZN, META, GOOGL, JPM, XOM, PFE, JNJ, WMT, DIS, NFLX, BABA, VZ, T";
 const sectorMap = {
   AAPL: "Technology",
@@ -111,14 +109,6 @@ function setLoading(isLoading) {
 
 function renderQuotes(data) {
   const quotes = data.quotes || [];
-  const counts = quotes.reduce((total, quote) => {
-    total[quote.status] = (total[quote.status] || 0) + 1;
-    return total;
-  }, { green: 0, red: 0, flat: 0 });
-
-  greenCount.textContent = counts.green || 0;
-  redCount.textContent = counts.red || 0;
-  flatCount.textContent = counts.flat || 0;
   updatedAt.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleString()}` : "Updated now";
   statusText.textContent = quotes.length ? `${quotes.length} ticker${quotes.length === 1 ? "" : "s"} scanned` : "No quotes returned.";
   missingSymbols.textContent = data.missing?.length ? `Not found: ${data.missing.join(", ")}` : "";
@@ -167,10 +157,12 @@ async function scanTickers() {
 
   if (!tickers.length) {
     tickerInput.value = sampleTickers;
+    saveTickers();
     statusText.textContent = "Loaded sample tickers.";
     return;
   }
 
+  saveTickers();
   setLoading(true);
   missingSymbols.textContent = "";
 
@@ -197,8 +189,11 @@ tickerFile.addEventListener("change", async (event) => {
   if (!file) return;
 
   tickerInput.value = await file.text();
+  saveTickers();
   statusText.textContent = `${file.name} loaded.`;
 });
+
+tickerInput.addEventListener("input", saveTickers);
 
 tickerForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -213,15 +208,23 @@ clearButton.addEventListener("click", () => {
   missingSymbols.textContent = "";
   statusText.textContent = "Add tickers to begin.";
   updatedAt.textContent = "No scan yet";
-  greenCount.textContent = "0";
-  redCount.textContent = "0";
-  flatCount.textContent = "0";
+  localStorage.removeItem(savedTickersKey);
   renderEmpty("Upload or paste ticker symbols to see a green and red market heatmap.");
 });
 
+function saveTickers() {
+  const value = tickerInput.value.trim();
+  if (value) {
+    localStorage.setItem(savedTickersKey, value);
+  } else {
+    localStorage.removeItem(savedTickersKey);
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   const urlSymbols = new URLSearchParams(window.location.search).get("symbols");
-  tickerInput.value = urlSymbols || sampleTickers;
+  const savedTickers = localStorage.getItem(savedTickersKey);
+  tickerInput.value = urlSymbols || savedTickers || sampleTickers;
   if (window.lucide) window.lucide.createIcons();
-  if (urlSymbols) scanTickers();
+  if (urlSymbols || savedTickers) scanTickers();
 });

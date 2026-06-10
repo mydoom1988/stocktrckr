@@ -108,9 +108,7 @@ h2 {
 }
 
 .input-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 18px;
+  display: block;
 }
 
 .panel,
@@ -198,25 +196,6 @@ button:focus-visible,
   border-color: var(--line);
 }
 
-.summary {
-  padding: 18px;
-  display: grid;
-  gap: 14px;
-}
-
-.summary div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
-}
-
-.summary strong {
-  font-size: 2rem;
-}
-
-.metric-label,
 #updatedAt,
 #statusText {
   color: var(--muted);
@@ -234,6 +213,15 @@ button:focus-visible,
 .result-head {
   padding: 18px;
   border-bottom: 1px solid var(--line);
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  text-align: right;
 }
 
 .heatmap-shell {
@@ -403,7 +391,6 @@ button:focus-visible,
     padding: 18px 0;
   }
 
-  .input-grid,
   .controls {
     grid-template-columns: 1fr;
   }
@@ -420,6 +407,11 @@ button:focus-visible,
   .result-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .result-meta {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .heatmap {

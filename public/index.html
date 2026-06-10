@@ -45,28 +45,15 @@
               </button>
             </div>
           </form>
-
-          <aside class="panel summary" aria-live="polite">
-            <div>
-              <span class="metric-label">Green</span>
-              <strong id="greenCount">0</strong>
-            </div>
-            <div>
-              <span class="metric-label">Red</span>
-              <strong id="redCount">0</strong>
-            </div>
-            <div>
-              <span class="metric-label">Flat</span>
-              <strong id="flatCount">0</strong>
-            </div>
-            <p id="updatedAt">No scan yet</p>
-          </aside>
         </div>
 
         <section class="results">
           <div class="result-head">
             <h2>Market heatmap</h2>
-            <span id="statusText">Add tickers to begin.</span>
+            <div class="result-meta">
+              <span id="statusText">Add tickers to begin.</span>
+              <span id="updatedAt">No scan yet</span>
+            </div>
           </div>
           <div class="heatmap-shell">
             <div class="heatmap" id="quoteTiles">
