@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>stocktrckr</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Market watchlist</p>
+            <h1 id="page-title">stocktrckr</h1>
+          </div>
+          <button class="icon-button" id="refreshButton" type="button" title="Refresh quotes" aria-label="Refresh quotes">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </header>
+
+        <div class="input-grid">
+          <form class="panel controls" id="tickerForm">
+            <label for="tickerFile" class="dropzone">
+              <i data-lucide="upload"></i>
+              <span>Upload CSV or TXT tickers</span>
+              <input id="tickerFile" type="file" accept=".csv,.txt,text/csv,text/plain" />
+            </label>
+
+            <label class="field" for="tickerInput">
+              <span>Tickers</span>
+              <textarea id="tickerInput" rows="7" spellcheck="false" placeholder="AAPL, MSFT, NVDA, TSLA"></textarea>
+            </label>
+
+            <div class="actions">
+              <button class="primary" type="submit">
+                <i data-lucide="activity"></i>
+                Scan market
+              </button>
+              <button class="secondary" id="clearButton" type="button">
+                <i data-lucide="trash-2"></i>
+                Clear
+              </button>
+            </div>
+          </form>
+
+          <aside class="panel summary" aria-live="polite">
+            <div>
+              <span class="metric-label">Green</span>
+              <strong id="greenCount">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Red</span>
+              <strong id="redCount">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Flat</span>
+              <strong id="flatCount">0</strong>
+            </div>
+            <p id="updatedAt">No scan yet</p>
+          </aside>
+        </div>
+
+        <section class="results">
+          <div class="result-head">
+            <h2>Market situation</h2>
+            <span id="statusText">Add tickers to begin.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Signal</th>
+                  <th>Ticker</th>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Change</th>
+                  <th>Market</th>
+                </tr>
+              </thead>
+              <tbody id="quoteRows">
+                <tr class="empty-row">
+                  <td colspan="6">Upload or paste ticker symbols to see green and red market moves.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="missing" id="missingSymbols"></p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
