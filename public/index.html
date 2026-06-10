@@ -65,27 +65,13 @@
 
         <section class="results">
           <div class="result-head">
-            <h2>Market situation</h2>
+            <h2>Market heatmap</h2>
             <span id="statusText">Add tickers to begin.</span>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Signal</th>
-                  <th>Ticker</th>
-                  <th>Name</th>
-                  <th>Price</th>
-                  <th>Change</th>
-                  <th>Market</th>
-                </tr>
-              </thead>
-              <tbody id="quoteRows">
-                <tr class="empty-row">
-                  <td colspan="6">Upload or paste ticker symbols to see green and red market moves.</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="heatmap-shell">
+            <div class="heatmap" id="quoteTiles">
+              <div class="empty-state">Upload or paste ticker symbols to see a green and red market heatmap.</div>
+            </div>
           </div>
           <p class="missing" id="missingSymbols"></p>
         </section>

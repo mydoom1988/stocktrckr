@@ -3,7 +3,7 @@ const tickerFile = document.querySelector("#tickerFile");
 const tickerForm = document.querySelector("#tickerForm");
 const clearButton = document.querySelector("#clearButton");
 const refreshButton = document.querySelector("#refreshButton");
-const quoteRows = document.querySelector("#quoteRows");
+const quoteTiles = document.querySelector("#quoteTiles");
 const statusText = document.querySelector("#statusText");
 const missingSymbols = document.querySelector("#missingSymbols");
 const updatedAt = document.querySelector("#updatedAt");
@@ -11,7 +11,56 @@ const greenCount = document.querySelector("#greenCount");
 const redCount = document.querySelector("#redCount");
 const flatCount = document.querySelector("#flatCount");
 
-const sampleTickers = "AAPL, MSFT, NVDA, TSLA, AMZN";
+const sampleTickers = "AAPL, MSFT, NVDA, TSLA, AMZN, META, GOOGL, JPM, XOM, PFE, JNJ, WMT, DIS, NFLX, BABA, VZ, T";
+const sectorMap = {
+  AAPL: "Technology",
+  MSFT: "Technology",
+  NVDA: "Technology",
+  AMD: "Technology",
+  INTC: "Technology",
+  AVGO: "Technology",
+  ORCL: "Technology",
+  CRM: "Technology",
+  TSLA: "Auto & Manufacturing",
+  F: "Auto & Manufacturing",
+  GM: "Auto & Manufacturing",
+  TM: "Auto & Manufacturing",
+  AMZN: "Consumer",
+  WMT: "Consumer",
+  COST: "Consumer",
+  HD: "Consumer",
+  MCD: "Consumer",
+  NKE: "Consumer",
+  META: "Communication",
+  GOOGL: "Communication",
+  GOOG: "Communication",
+  NFLX: "Communication",
+  DIS: "Communication",
+  VZ: "Communication",
+  T: "Communication",
+  JPM: "Financial",
+  BAC: "Financial",
+  GS: "Financial",
+  MS: "Financial",
+  V: "Financial",
+  MA: "Financial",
+  BRK_B: "Financial",
+  "BRK-B": "Financial",
+  XOM: "Energy",
+  CVX: "Energy",
+  COP: "Energy",
+  SLB: "Energy",
+  JNJ: "Healthcare",
+  PFE: "Healthcare",
+  MRK: "Healthcare",
+  ABBV: "Healthcare",
+  LLY: "Healthcare",
+  UNH: "Healthcare",
+  BABA: "International",
+  JD: "International",
+  PDD: "International",
+  TSM: "International",
+};
 
 function parseTickers(text) {
   return [...new Set(
@@ -39,7 +88,7 @@ function formatChange(value, percent) {
 }
 
 function renderEmpty(message) {
-  quoteRows.innerHTML = `<tr class="empty-row"><td colspan="6">${message}</td></tr>`;
+  quoteTiles.innerHTML = `<div class="empty-state">${message}</div>`;
 }
 
 function setLoading(isLoading) {
@@ -68,24 +117,42 @@ function renderQuotes(data) {
     return;
   }
 
-  quoteRows.innerHTML = quotes
-    .sort((a, b) => b.changePercent - a.changePercent)
-    .map((quote) => {
-      const changeClass = quote.change > 0 ? "positive" : quote.change < 0 ? "negative" : "";
-      const marketTime = quote.marketTime ? new Date(quote.marketTime).toLocaleString() : quote.marketState;
+  const grouped = quotes
+    .slice()
+    .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
+    .reduce((groups, quote) => {
+      const sector = sectorMap[quote.symbol] || "Watchlist";
+      groups[sector] = groups[sector] || [];
+      groups[sector].push(quote);
+      return groups;
+    }, {});
 
-      return `
-        <tr>
-          <td><span class="signal ${quote.status}">${quote.status}</span></td>
-          <td><strong>${quote.symbol}</strong></td>
-          <td>${quote.name || quote.symbol}</td>
-          <td>${formatMoney(quote.price, quote.currency)}</td>
-          <td class="${changeClass}">${formatChange(quote.change, quote.changePercent)}</td>
-          <td>${quote.exchange}<br><small>${marketTime}</small></td>
-        </tr>
-      `;
-    })
+  quoteTiles.innerHTML = Object.entries(grouped)
+    .map(([sector, sectorQuotes]) => `
+      <section class="sector">
+        <h3>${sector}</h3>
+        <div class="tile-grid">
+          ${sectorQuotes.map(renderTile).join("")}
+        </div>
+      </section>
+    `)
     .join("");
+}
+
+function renderTile(quote) {
+  const intensity = Math.min(Math.abs(quote.changePercent || 0), 12);
+  const size = Math.max(1, Math.min(6, Math.round(intensity / 2) + 1));
+  const percentPrefix = quote.changePercent > 0 ? "+" : "";
+  const title = `${quote.symbol} ${formatChange(quote.change, quote.changePercent)} ${formatMoney(quote.price, quote.currency)}`;
+
+  return `
+    <article class="stock-tile ${quote.status} size-${size}" title="${title}">
+      <div class="tile-symbol">${quote.symbol}</div>
+      <div class="tile-percent">${percentPrefix}${quote.changePercent.toFixed(2)}%</div>
+      <div class="tile-price">${formatMoney(quote.price, quote.currency)}</div>
+      <div class="tile-name">${quote.name || quote.symbol}</div>
+    </article>
+  `;
 }
 
 async function scanTickers() {
@@ -142,7 +209,7 @@ clearButton.addEventListener("click", () => {
   greenCount.textContent = "0";
   redCount.textContent = "0";
   flatCount.textContent = "0";
-  renderEmpty("Upload or paste ticker symbols to see green and red market moves.");
+  renderEmpty("Upload or paste ticker symbols to see a green and red market heatmap.");
 });
 
 window.addEventListener("DOMContentLoaded", () => {
