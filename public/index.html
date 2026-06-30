@@ -31,7 +31,7 @@
 
             <label class="field" for="tickerInput">
               <span>Tickers</span>
-              <textarea id="tickerInput" rows="7" spellcheck="false" placeholder="AAPL, MSFT, NVDA, TSLA"></textarea>
+              <textarea id="tickerInput" rows="7" spellcheck="false" placeholder="SNDK, MU, LSMC, NBIS, KI5, MEI, AAOI, EUNL, RHM, WDC, ICHR, ABJ, SPCX, SHMD"></textarea>
             </label>
 
             <div class="actions">
@@ -49,7 +49,10 @@
 
         <section class="results">
           <div class="result-head">
-            <h2>Market heatmap</h2>
+            <div>
+              <h2>Market heatmap</h2>
+              <p class="section-note">Price action grouped by sector.</p>
+            </div>
             <div class="result-meta">
               <span id="statusText">Add tickers to begin.</span>
               <span id="updatedAt">No scan yet</span>
@@ -61,6 +64,34 @@
             </div>
           </div>
           <p class="missing" id="missingSymbols"></p>
+        </section>
+
+        <section class="decision-grid" aria-label="Decision cockpit">
+          <div class="panel decision-panel">
+            <div class="result-head compact">
+              <div>
+                <p class="eyebrow">Portfolio manager</p>
+                <h2>Opportunity ranking</h2>
+              </div>
+              <span class="pill" id="watchlistRisk">No scan</span>
+            </div>
+            <div class="ranking-list" id="rankingList">
+              <div class="empty-state light">Scan tickers to rank opportunities by score, action and risk.</div>
+            </div>
+          </div>
+
+          <aside class="panel thesis-panel">
+            <div class="result-head compact">
+              <div>
+                <p class="eyebrow">Thesis tracker</p>
+                <h2 id="selectedTitle">Select a ticker</h2>
+              </div>
+              <span class="pill" id="selectedScore">--</span>
+            </div>
+            <div class="thesis-body" id="thesisBody">
+              <p class="section-note">Click any ranked ticker to write your thesis, buy zone, sell rule and risks. The data is saved in this browser.</p>
+            </div>
+          </aside>
         </section>
       </section>
     </main>
