@@ -1,12 +1,14 @@
 const express = require("express");
 const path = require("path");
 const { createAuth } = require("./auth");
+const { deriveMetrics, fetchTimeseries } = require("./fundamentals");
 
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
 const NEWS_PER_SYMBOL = 8;
 const MAX_NEWS_ITEMS = 60;
 const NEWS_CACHE_MS = 10 * 60 * 1000;
+const FUNDAMENTALS_CACHE_MS = 12 * 60 * 60 * 1000;
 const SYMBOL_ALIASES = {
   ABB: ["ABBN.SW", "ABBNY"],
   EUNL: ["EUNL.DE"],
@@ -64,6 +66,7 @@ function toQuoteView(symbol, chart) {
     providerSymbol: meta.symbol || symbol,
     name: meta.longName || meta.shortName || meta.symbol || symbol,
     exchange: meta.fullExchangeName || meta.exchangeName || "Market",
+    instrumentType: meta.instrumentType || "EQUITY",
     currency: meta.currency || "USD",
     price,
     previousClose,
@@ -264,6 +267,63 @@ function createNewsHandler({ cacheMs = NEWS_CACHE_MS } = {}) {
   };
 }
 
+function createFundamentalsHandler({ cacheMs = FUNDAMENTALS_CACHE_MS } = {}) {
+  const cache = new Map();
+
+  return async function handleFundamentals(req, res) {
+    const [symbol] = parseSymbols(req.query.symbol);
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Add a valid ticker symbol." });
+    }
+
+    const cached = cache.get(symbol);
+    if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
+
+    let quote;
+    try {
+      quote = await fetchChartQuote(symbol);
+    } catch (error) {
+      return res.status(404).json({ error: `No market data found for ${symbol}.` });
+    }
+
+    const data = {
+      symbol,
+      providerSymbol: quote.providerSymbol,
+      name: quote.name,
+      exchange: quote.exchange,
+      instrumentType: quote.instrumentType,
+      currency: quote.currency,
+      price: quote.price,
+      metrics: null,
+      error: null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // The checklist is about companies; funds and ETFs have no statements to check.
+    if (quote.instrumentType === "EQUITY") {
+      try {
+        const series = await fetchTimeseries(quote.providerSymbol);
+        data.metrics = deriveMetrics(series, { price: quote.price, priceCurrency: quote.currency });
+        const cap = data.metrics.marketCap;
+        if (cap) {
+          const rate = cap.currency === "USD" ? 1 : (await fetchFxRates([cap.currency], "USD"))[cap.currency];
+          data.metrics.marketCapUsd = rate > 0 ? cap.value * rate : null;
+        }
+        if (!Object.keys(series).length) data.error = `Yahoo has no financial statements for ${quote.providerSymbol}.`;
+      } catch (error) {
+        data.error = "Financial statements couldn't be loaded right now.";
+      }
+    }
+
+    if (!data.error) {
+      if (cache.size > 500) cache.clear();
+      cache.set(symbol, { data, expiresAt: Date.now() + cacheMs });
+    }
+    return res.json(data);
+  };
+}
+
 function securityHeaders(req, res, next) {
   res.set({
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
@@ -340,6 +400,7 @@ function createApp(options = {}) {
   );
   app.get("/api/quotes", handleQuotes);
   app.get("/api/news", createNewsHandler(options.news));
+  app.get("/api/fundamentals", createFundamentalsHandler(options.fundamentals));
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"), { cacheControl: false });
   });

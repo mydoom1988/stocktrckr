@@ -40,6 +40,15 @@ PDF statements, `.xlsx` workbooks and screenshots aren't read; export CSV instea
 
 The News panel lists the latest Yahoo Finance headlines for your holdings, newest first. Tap a ticker chip to see one holding's news; chips are ordered by position size. Each holding is looked up by the symbol its price came from (for example `RHM.DE` for Rheinmetall), and results are cached on the server for 10 minutes.
 
+## Buy checklist
+
+The Opportunity ranking and Thesis tracker score stocks against a fixed set of buying rules. Check one ticker, or tap **Check my holdings**.
+
+- **From the financials** (Yahoo Finance annual data, filled in automatically): profitable every year for 5+ years, operating cash flow growing for 7+ years, earnings per share growing at least 3% a year, ROE above 15%, ROA at least 7%, debt-to-equity at most 1.5, cash coming from the business rather than new debt, positive net tangible assets, market cap of at least $500 million, and P/E below 15. Yahoo usually keeps about four years, so the multi-year rules say when they could only check a shorter window.
+- **Your judgement** (you answer): whether it hit its previous forecasts, whether CEO pay tracks results, institutional ownership of at most 60%, whether insiders have been buying, and whether you understand the business and where its revenue comes from.
+
+Tap a rule to answer or override it. A verdict appears only once the open rules can no longer change it. Each stock also keeps your thesis, buy zone, sell rule and risks, and a purchase date that starts a 3-year review reminder. Funds and ETFs aren't scored. For a secondary listing without statements, check the main listing's Yahoo symbol instead (for example `285A.T`). Everything is saved in the browser.
+
 ## Local development
 
 ```bash
