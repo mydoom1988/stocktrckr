@@ -36,6 +36,10 @@ CASH,Cash balance,150.00,EUR,,
 
 PDF statements, `.xlsx` workbooks and screenshots aren't read; export CSV instead. Live prices and currency rates come from Yahoo Finance. Values match Revolut's when Yahoo resolves a ticker to the same listing; hover over a holding to see which listing was used.
 
+## News
+
+The News panel lists the latest Yahoo Finance headlines for your holdings, newest first. Tap a ticker chip to see one holding's news; chips are ordered by position size. Each holding is looked up by the symbol its price came from (for example `RHM.DE` for Rheinmetall), and results are cached on the server for 10 minutes.
+
 ## Local development
 
 ```bash

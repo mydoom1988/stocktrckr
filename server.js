@@ -4,6 +4,9 @@ const { createAuth } = require("./auth");
 
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
+const NEWS_PER_SYMBOL = 8;
+const MAX_NEWS_ITEMS = 60;
+const NEWS_CACHE_MS = 10 * 60 * 1000;
 const SYMBOL_ALIASES = {
   ABB: ["ABBN.SW", "ABBNY"],
   EUNL: ["EUNL.DE"],
@@ -166,6 +169,101 @@ async function fetchFxRates(currencies, base) {
   return rates;
 }
 
+// Accepts Yahoo's search-result stories and the newer { content } shape; drops anything without a web link.
+function toNewsItem(entry) {
+  const story = entry || {};
+  const content = story.content || story;
+  const title = String(content.title || "").trim();
+  let url;
+  try {
+    url = new URL(story.link || content.canonicalUrl?.url || content.clickThroughUrl?.url);
+  } catch (error) {
+    return null;
+  }
+  if (!title || !["https:", "http:"].includes(url.protocol)) return null;
+
+  const seconds = Number(story.providerPublishTime);
+  const published = seconds > 0 ? new Date(seconds * 1000) : new Date(content.pubDate || NaN);
+
+  return {
+    id: String(story.uuid || story.id || url.href),
+    title: title.slice(0, 300),
+    publisher: String(story.publisher || content.provider?.displayName || "").slice(0, 100),
+    url: url.href,
+    publishedAt: Number.isNaN(published.getTime()) ? null : published.toISOString(),
+  };
+}
+
+async function fetchNews(symbol) {
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", symbol);
+  url.searchParams.set("quotesCount", "0");
+  url.searchParams.set("newsCount", String(NEWS_PER_SYMBOL));
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "stocktrckr/1.0",
+      "Accept": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`News provider returned ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.news || []).map(toNewsItem).filter(Boolean);
+}
+
+function createNewsHandler({ cacheMs = NEWS_CACHE_MS } = {}) {
+  const cache = new Map();
+
+  async function newsFor(symbol) {
+    const cached = cache.get(symbol);
+    if (cached && cached.expiresAt > Date.now()) return cached.items;
+
+    const items = await fetchNews(symbol);
+    if (cache.size > 500) cache.clear();
+    cache.set(symbol, { items, expiresAt: Date.now() + cacheMs });
+    return items;
+  }
+
+  return async function handleNews(req, res) {
+    const symbols = parseSymbols(req.query.symbols);
+
+    if (!symbols.length) {
+      return res.status(400).json({ error: "Add at least one valid ticker symbol." });
+    }
+
+    const settled = await Promise.allSettled(symbols.map(newsFor));
+    const stories = new Map();
+    const failed = [];
+
+    settled.forEach((result, index) => {
+      const symbol = symbols[index];
+      if (result.status === "rejected") {
+        failed.push(symbol);
+        return;
+      }
+      for (const item of result.value) {
+        const story = stories.get(item.id) || { ...item, symbols: [] };
+        if (!story.symbols.includes(symbol)) story.symbols.push(symbol);
+        stories.set(item.id, story);
+      }
+    });
+
+    if (failed.length === symbols.length) {
+      return res.status(502).json({ error: "Could not fetch news right now. Try again in a moment." });
+    }
+
+    const items = [...stories.values()]
+      .sort((a, b) => String(b.publishedAt || "").localeCompare(String(a.publishedAt || "")))
+      .slice(0, MAX_NEWS_ITEMS);
+
+    return res.json({ items, failed, updatedAt: new Date().toISOString() });
+  };
+}
+
 function securityHeaders(req, res, next) {
   res.set({
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
@@ -241,6 +339,7 @@ function createApp(options = {}) {
     })
   );
   app.get("/api/quotes", handleQuotes);
+  app.get("/api/news", createNewsHandler(options.news));
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"), { cacheControl: false });
   });

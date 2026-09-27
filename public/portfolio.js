@@ -211,6 +211,22 @@
     return parts.filter(Boolean).join(" · ");
   }
 
+  // Largest position first; holdings without a price go last.
+  function sortedRows() {
+    return portfolio.holdings.map(evaluate).sort((a, b) => {
+      const aValue = Number.isFinite(a.valueBase) ? a.valueBase : -Infinity;
+      const bValue = Number.isFinite(b.valueBase) ? b.valueBase : -Infinity;
+      return bValue - aValue || a.holding.ticker.localeCompare(b.holding.ticker);
+    });
+  }
+
+  // Tells the news panel which holdings to follow, using Yahoo's symbol when a quote resolved one.
+  function announceHoldings() {
+    const rows = portfolio?.holdings.length ? sortedRows() : [];
+    const holdings = rows.map(({ holding, quote }) => ({ ticker: holding.ticker, query: quote?.providerSymbol || holding.ticker }));
+    document.dispatchEvent(new CustomEvent("portfolio:holdings", { detail: { holdings } }));
+  }
+
   function render() {
     const hasPortfolio = Boolean(portfolio?.holdings.length);
     removeButton.hidden = !hasPortfolio;
@@ -229,11 +245,7 @@
       return;
     }
 
-    const rows = portfolio.holdings.map(evaluate).sort((a, b) => {
-      const aValue = Number.isFinite(a.valueBase) ? a.valueBase : -Infinity;
-      const bValue = Number.isFinite(b.valueBase) ? b.valueBase : -Infinity;
-      return bValue - aValue || a.holding.ticker.localeCompare(b.holding.ticker);
-    });
+    const rows = sortedRows();
     const totals = summarize(rows);
 
     summary.innerHTML = renderSummary(totals);
@@ -287,6 +299,7 @@
 
     loading = false;
     render();
+    announceHoldings();
   }
 
   async function importFile(file) {
@@ -350,6 +363,7 @@
     savePortfolio();
     hideNotice();
     render();
+    announceHoldings();
   });
 
   summary.addEventListener("click", (event) => {
