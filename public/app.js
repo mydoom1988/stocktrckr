@@ -71,6 +71,11 @@ const sectorMap = {
   NBIS: "Technology",
 };
 
+function escapeHtml(value) {
+  const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(value ?? "").replace(/[&<>"']/g, (char) => entities[char]);
+}
+
 function parseTickers(text) {
   return [...new Set(
     String(text || "")
@@ -143,11 +148,11 @@ function renderTile(quote) {
   const title = `${quote.symbol} ${formatChange(quote.change, quote.changePercent)} ${formatMoney(quote.price, quote.currency)}`;
 
   return `
-    <article class="stock-tile ${quote.status} size-${size}" title="${title}">
-      <div class="tile-symbol">${quote.symbol}</div>
+    <article class="stock-tile ${quote.status} size-${size}" title="${escapeHtml(title)}">
+      <div class="tile-symbol">${escapeHtml(quote.symbol)}</div>
       <div class="tile-percent">${percentPrefix}${quote.changePercent.toFixed(2)}%</div>
-      <div class="tile-price">${formatMoney(quote.price, quote.currency)}</div>
-      <div class="tile-name">${quote.name || quote.symbol}</div>
+      <div class="tile-price">${escapeHtml(formatMoney(quote.price, quote.currency))}</div>
+      <div class="tile-name">${escapeHtml(quote.name || quote.symbol)}</div>
     </article>
   `;
 }
@@ -168,6 +173,10 @@ async function scanTickers() {
 
   try {
     const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(tickers.join(","))}`);
+    if (response.status === 401) {
+      window.location.assign("/login");
+      return;
+    }
     const data = await response.json();
 
     if (!response.ok) {
@@ -180,7 +189,6 @@ async function scanTickers() {
     renderEmpty("Market data could not be loaded.");
   } finally {
     setLoading(false);
-    if (window.lucide) window.lucide.createIcons();
   }
 }
 
@@ -225,6 +233,5 @@ window.addEventListener("DOMContentLoaded", () => {
   const urlSymbols = new URLSearchParams(window.location.search).get("symbols");
   const savedTickers = localStorage.getItem(savedTickersKey);
   tickerInput.value = urlSymbols || savedTickers || sampleTickers;
-  if (window.lucide) window.lucide.createIcons();
   if (urlSymbols || savedTickers) scanTickers();
 });

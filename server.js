@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
+const { createAuth } = require("./auth");
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
 const SYMBOL_ALIASES = {
@@ -9,8 +9,24 @@ const SYMBOL_ALIASES = {
   EUNL: ["EUNL.DE"],
   LSMC: ["LSMC.DE"],
 };
-
-app.use(express.static(path.join(__dirname, "public")));
+// Yahoo prices some listings in minor units (pence, agorot, cents); FX pairs are quoted per major unit.
+const MINOR_CURRENCIES = {
+  GBp: ["GBP", 100],
+  GBX: ["GBP", 100],
+  ILA: ["ILS", 100],
+  ZAc: ["ZAR", 100],
+};
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
 
 function parseSymbols(input) {
   return [
@@ -21,6 +37,11 @@ function parseSymbols(input) {
         .filter((symbol) => /^[A-Z0-9][A-Z0-9.-]{0,14}$/.test(symbol))
     ),
   ].slice(0, MAX_SYMBOLS);
+}
+
+function parseCurrency(input) {
+  const currency = String(input || "").trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
 function yahooSymbol(symbol) {
@@ -121,8 +142,44 @@ async function fetchChartQuote(symbol) {
   throw new Error(`No data found for ${symbol}`);
 }
 
-app.get("/api/quotes", async (req, res) => {
+// Returns how much one unit of each quote currency is worth in the base currency.
+async function fetchFxRates(currencies, base) {
+  const rates = {};
+
+  await Promise.all(
+    [...new Set(currencies)].map(async (currency) => {
+      const [major, divisor] = MINOR_CURRENCIES[currency] || [currency.toUpperCase(), 1];
+      if (major === base) {
+        rates[currency] = 1 / divisor;
+        return;
+      }
+
+      try {
+        const pair = await fetchChart(`${major}${base}=X`, `${major}${base}`);
+        if (pair.price > 0) rates[currency] = pair.price / divisor;
+      } catch (error) {
+        // Leave the rate out; the page shows those holdings in their own currency.
+      }
+    })
+  );
+
+  return rates;
+}
+
+function securityHeaders(req, res, next) {
+  res.set({
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "Referrer-Policy": "same-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-Robots-Tag": "noindex, nofollow",
+  });
+  next();
+}
+
+async function handleQuotes(req, res) {
   const symbols = parseSymbols(req.query.symbols);
+  const base = parseCurrency(req.query.base);
 
   if (!symbols.length) {
     return res.status(400).json({ error: "Add at least one valid ticker symbol." });
@@ -135,11 +192,14 @@ app.get("/api/quotes", async (req, res) => {
       .map((result) => result.value);
     const found = new Set(quotes.map((quote) => quote.symbol.toUpperCase()));
     const missing = symbols.filter((symbol) => !found.has(symbol.toUpperCase()));
+    const fx = base ? await fetchFxRates(quotes.map((quote) => quote.currency), base) : undefined;
 
     return res.json({
       quotes,
       missing,
       requested: symbols,
+      base: base || undefined,
+      fx,
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -148,12 +208,50 @@ app.get("/api/quotes", async (req, res) => {
       detail: process.env.NODE_ENV === "production" ? undefined : error.message,
     });
   }
-});
+}
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+function createApp(options = {}) {
+  const app = express();
+  const auth = createAuth({
+    password: process.env.APP_PASSWORD,
+    sessionSecret: process.env.SESSION_SECRET,
+    ...options.auth,
+  });
 
-app.listen(PORT, () => {
-  console.log(`stocktrckr listening on port ${PORT}`);
-});
+  app.disable("x-powered-by");
+  // Render terminates HTTPS at its proxy: trust one hop so req.secure and req.ip are the visitor's.
+  app.set("trust proxy", 1);
+  app.use(securityHeaders);
+
+  // Public: only the sign-in page and what it needs.
+  app.get("/robots.txt", (req, res) => {
+    res.type("text/plain").send("User-agent: *\nDisallow: /\n");
+  });
+  app.get("/login.css", (req, res) => {
+    res.sendFile(path.join(__dirname, "views", "login.css"));
+  });
+  app.use(auth.router);
+
+  // Everything below requires a signed-in session.
+  app.use(auth.requireAuth);
+  app.use(
+    express.static(path.join(__dirname, "public"), {
+      cacheControl: false,
+      setHeaders: (res) => res.setHeader("Cache-Control", "private, no-cache"),
+    })
+  );
+  app.get("/api/quotes", handleQuotes);
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"), { cacheControl: false });
+  });
+
+  return app;
+}
+
+if (require.main === module) {
+  createApp().listen(PORT, () => {
+    console.log(`stocktrckr listening on port ${PORT}`);
+  });
+}
+
+module.exports = { createApp };
