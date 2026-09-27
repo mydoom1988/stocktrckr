@@ -1,9 +1,14 @@
 const express = require("express");
 const path = require("path");
 const { createAuth } = require("./auth");
+const { deriveMetrics, fetchTimeseries } = require("./fundamentals");
 
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
+const NEWS_PER_SYMBOL = 8;
+const MAX_NEWS_ITEMS = 60;
+const NEWS_CACHE_MS = 10 * 60 * 1000;
+const FUNDAMENTALS_CACHE_MS = 12 * 60 * 60 * 1000;
 const SYMBOL_ALIASES = {
   ABB: ["ABBN.SW", "ABBNY"],
   EUNL: ["EUNL.DE"],
@@ -61,6 +66,7 @@ function toQuoteView(symbol, chart) {
     providerSymbol: meta.symbol || symbol,
     name: meta.longName || meta.shortName || meta.symbol || symbol,
     exchange: meta.fullExchangeName || meta.exchangeName || "Market",
+    instrumentType: meta.instrumentType || "EQUITY",
     currency: meta.currency || "USD",
     price,
     previousClose,
@@ -166,6 +172,158 @@ async function fetchFxRates(currencies, base) {
   return rates;
 }
 
+// Accepts Yahoo's search-result stories and the newer { content } shape; drops anything without a web link.
+function toNewsItem(entry) {
+  const story = entry || {};
+  const content = story.content || story;
+  const title = String(content.title || "").trim();
+  let url;
+  try {
+    url = new URL(story.link || content.canonicalUrl?.url || content.clickThroughUrl?.url);
+  } catch (error) {
+    return null;
+  }
+  if (!title || !["https:", "http:"].includes(url.protocol)) return null;
+
+  const seconds = Number(story.providerPublishTime);
+  const published = seconds > 0 ? new Date(seconds * 1000) : new Date(content.pubDate || NaN);
+
+  return {
+    id: String(story.uuid || story.id || url.href),
+    title: title.slice(0, 300),
+    publisher: String(story.publisher || content.provider?.displayName || "").slice(0, 100),
+    url: url.href,
+    publishedAt: Number.isNaN(published.getTime()) ? null : published.toISOString(),
+  };
+}
+
+async function fetchNews(symbol) {
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", symbol);
+  url.searchParams.set("quotesCount", "0");
+  url.searchParams.set("newsCount", String(NEWS_PER_SYMBOL));
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "stocktrckr/1.0",
+      "Accept": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`News provider returned ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.news || []).map(toNewsItem).filter(Boolean);
+}
+
+function createNewsHandler({ cacheMs = NEWS_CACHE_MS } = {}) {
+  const cache = new Map();
+
+  async function newsFor(symbol) {
+    const cached = cache.get(symbol);
+    if (cached && cached.expiresAt > Date.now()) return cached.items;
+
+    const items = await fetchNews(symbol);
+    if (cache.size > 500) cache.clear();
+    cache.set(symbol, { items, expiresAt: Date.now() + cacheMs });
+    return items;
+  }
+
+  return async function handleNews(req, res) {
+    const symbols = parseSymbols(req.query.symbols);
+
+    if (!symbols.length) {
+      return res.status(400).json({ error: "Add at least one valid ticker symbol." });
+    }
+
+    const settled = await Promise.allSettled(symbols.map(newsFor));
+    const stories = new Map();
+    const failed = [];
+
+    settled.forEach((result, index) => {
+      const symbol = symbols[index];
+      if (result.status === "rejected") {
+        failed.push(symbol);
+        return;
+      }
+      for (const item of result.value) {
+        const story = stories.get(item.id) || { ...item, symbols: [] };
+        if (!story.symbols.includes(symbol)) story.symbols.push(symbol);
+        stories.set(item.id, story);
+      }
+    });
+
+    if (failed.length === symbols.length) {
+      return res.status(502).json({ error: "Could not fetch news right now. Try again in a moment." });
+    }
+
+    const items = [...stories.values()]
+      .sort((a, b) => String(b.publishedAt || "").localeCompare(String(a.publishedAt || "")))
+      .slice(0, MAX_NEWS_ITEMS);
+
+    return res.json({ items, failed, updatedAt: new Date().toISOString() });
+  };
+}
+
+function createFundamentalsHandler({ cacheMs = FUNDAMENTALS_CACHE_MS } = {}) {
+  const cache = new Map();
+
+  return async function handleFundamentals(req, res) {
+    const [symbol] = parseSymbols(req.query.symbol);
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Add a valid ticker symbol." });
+    }
+
+    const cached = cache.get(symbol);
+    if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
+
+    let quote;
+    try {
+      quote = await fetchChartQuote(symbol);
+    } catch (error) {
+      return res.status(404).json({ error: `No market data found for ${symbol}.` });
+    }
+
+    const data = {
+      symbol,
+      providerSymbol: quote.providerSymbol,
+      name: quote.name,
+      exchange: quote.exchange,
+      instrumentType: quote.instrumentType,
+      currency: quote.currency,
+      price: quote.price,
+      metrics: null,
+      error: null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // The checklist is about companies; funds and ETFs have no statements to check.
+    if (quote.instrumentType === "EQUITY") {
+      try {
+        const series = await fetchTimeseries(quote.providerSymbol);
+        data.metrics = deriveMetrics(series, { price: quote.price, priceCurrency: quote.currency });
+        const cap = data.metrics.marketCap;
+        if (cap) {
+          const rate = cap.currency === "USD" ? 1 : (await fetchFxRates([cap.currency], "USD"))[cap.currency];
+          data.metrics.marketCapUsd = rate > 0 ? cap.value * rate : null;
+        }
+        if (!Object.keys(series).length) data.error = `Yahoo has no financial statements for ${quote.providerSymbol}.`;
+      } catch (error) {
+        data.error = "Financial statements couldn't be loaded right now.";
+      }
+    }
+
+    if (!data.error) {
+      if (cache.size > 500) cache.clear();
+      cache.set(symbol, { data, expiresAt: Date.now() + cacheMs });
+    }
+    return res.json(data);
+  };
+}
+
 function securityHeaders(req, res, next) {
   res.set({
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
@@ -241,6 +399,8 @@ function createApp(options = {}) {
     })
   );
   app.get("/api/quotes", handleQuotes);
+  app.get("/api/news", createNewsHandler(options.news));
+  app.get("/api/fundamentals", createFundamentalsHandler(options.fundamentals));
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"), { cacheControl: false });
   });

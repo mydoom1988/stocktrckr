@@ -7,6 +7,9 @@
     <title>stocktrckr</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="/portfolio-import.js" defer></script>
+    <script src="/news.js" defer></script>
+    <script src="/checklist-rules.js" defer></script>
+    <script src="/checklist.js" defer></script>
     <script src="/portfolio.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
@@ -55,6 +58,19 @@
           <p class="portfolio-status" id="portfolioStatus"></p>
         </section>
 
+        <section class="panel news" aria-labelledby="news-title">
+          <div class="result-head">
+            <div>
+              <p class="eyebrow">Your holdings</p>
+              <h2 id="news-title">News</h2>
+            </div>
+            <span class="news-status" id="newsStatus"></span>
+          </div>
+          <div class="news-filters" id="newsFilters" role="group" aria-label="Show news for" hidden></div>
+          <ol class="news-list" id="newsList"></ol>
+          <p class="news-source">Headlines from Yahoo Finance. Links open in a new tab.</p>
+        </section>
+
         <div class="input-grid">
           <form class="panel controls" id="tickerForm">
             <label for="tickerFile" class="dropzone">
@@ -100,18 +116,23 @@
           <p class="missing" id="missingSymbols"></p>
         </section>
 
-        <section class="decision-grid" aria-label="Decision cockpit">
+        <section class="decision-grid" aria-label="Buy checklist">
           <div class="panel decision-panel">
             <div class="result-head compact">
               <div>
-                <p class="eyebrow">Portfolio manager</p>
+                <p class="eyebrow">Buy checklist</p>
                 <h2>Opportunity ranking</h2>
               </div>
-              <span class="pill" id="watchlistRisk">No scan</span>
+              <button class="secondary" id="checkHoldings" type="button" hidden>Check my holdings</button>
             </div>
-            <div class="ranking-list" id="rankingList">
-              <div class="empty-state light">Scan tickers to rank opportunities by score, action and risk.</div>
-            </div>
+            <form class="check-form" id="checkForm">
+              <label class="visually-hidden" for="checkTicker">Ticker to check</label>
+              <input id="checkTicker" list="checkSuggestions" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ticker, e.g. MU or RHM.DE" />
+              <datalist id="checkSuggestions"></datalist>
+              <button class="primary" type="submit">Check</button>
+            </form>
+            <p class="check-message" id="checkMessage" role="status"></p>
+            <ol class="ranking-list" id="rankingList"></ol>
           </div>
 
           <aside class="panel thesis-panel">
@@ -122,9 +143,7 @@
               </div>
               <span class="pill" id="selectedScore">--</span>
             </div>
-            <div class="thesis-body" id="thesisBody">
-              <p class="section-note">Click any ranked ticker to write your thesis, buy zone, sell rule and risks. The data is saved in this browser.</p>
-            </div>
+            <div class="thesis-body" id="thesisBody"></div>
           </aside>
         </section>
       </section>
