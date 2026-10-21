@@ -771,6 +771,15 @@ button:focus-visible,
   margin: 0;
   padding: 0;
   list-style: none;
+  max-height: min(560px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.news-list:focus-within {
+  outline: 3px solid rgba(36, 87, 197, 0.16);
+  outline-offset: -3px;
 }
 
 .news-item {
