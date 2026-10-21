@@ -9,6 +9,13 @@ const NEWS_PER_SYMBOL = 8;
 const MAX_NEWS_ITEMS = 60;
 const NEWS_CACHE_MS = 10 * 60 * 1000;
 const FUNDAMENTALS_CACHE_MS = 12 * 60 * 60 * 1000;
+// Revolut's German-listing codes have no Yahoo symbol of their own; these are the main listings,
+// tried first so the code can't resolve to an unrelated company.
+const REVOLUT_LISTINGS = {
+  KI5: ["285A.T"],
+  ABJ: ["ABBN.SW"],
+  VGLA: ["VGLA.DE"],
+};
 const SYMBOL_ALIASES = {
   ABB: ["ABBN.SW", "ABBNY"],
   EUNL: ["EUNL.DE"],
@@ -130,7 +137,7 @@ async function findYahooSymbol(symbol) {
 }
 
 async function fetchChartQuote(symbol) {
-  const candidates = [symbol, ...(SYMBOL_ALIASES[symbol] || [])];
+  const candidates = [...(REVOLUT_LISTINGS[symbol] || []), symbol, ...(SYMBOL_ALIASES[symbol] || [])];
 
   for (const candidate of candidates) {
     try {
