@@ -11,6 +11,7 @@ const MAX_NEWS_ITEMS = 60;
 const NEWS_CACHE_MS = 10 * 60 * 1000;
 const FUNDAMENTALS_CACHE_MS = 12 * 60 * 60 * 1000;
 const INSIGHTS_CACHE_MS = 6 * 60 * 60 * 1000;
+const YAHOO_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 // Revolut's German-listing codes have no Yahoo symbol of their own; these are the main listings,
 // tried first so the code can't resolve to an unrelated company.
 const REVOLUT_LISTINGS = {
@@ -92,21 +93,34 @@ function toQuoteView(symbol, chart) {
   };
 }
 
-async function fetchChart(providerSymbol, displaySymbol) {
-  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol(providerSymbol))}`);
-  url.searchParams.set("range", "5d");
-  url.searchParams.set("interval", "1d");
+async function fetchYahoo(pathname, configureUrl) {
+  let lastError;
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "stocktrckr/1.0",
-      "Accept": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Quote provider returned ${response.status}`);
+  for (const host of YAHOO_HOSTS) {
+    const url = new URL(`https://${host}${pathname}`);
+    configureUrl?.(url);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "stocktrckr/1.0",
+          "Accept": "application/json",
+        },
+      });
+      if (response.ok) return response;
+      lastError = new Error(`Yahoo Finance returned ${response.status}.`);
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  throw lastError || new Error("Yahoo Finance could not be reached.");
+}
+
+async function fetchChart(providerSymbol, displaySymbol) {
+  const response = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(yahooSymbol(providerSymbol))}`, (url) => {
+    url.searchParams.set("range", "5d");
+    url.searchParams.set("interval", "1d");
+  });
 
   const data = await response.json();
   const chart = data.chart?.result?.[0];
@@ -119,19 +133,11 @@ async function fetchChart(providerSymbol, displaySymbol) {
 }
 
 async function findYahooSymbol(symbol) {
-  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
-  url.searchParams.set("q", symbol);
-  url.searchParams.set("quotesCount", "8");
-  url.searchParams.set("newsCount", "0");
-
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "stocktrckr/1.0",
-      "Accept": "application/json",
-    },
+  const response = await fetchYahoo("/v1/finance/search", (url) => {
+    url.searchParams.set("q", symbol);
+    url.searchParams.set("quotesCount", "8");
+    url.searchParams.set("newsCount", "0");
   });
-
-  if (!response.ok) return null;
 
   const data = await response.json();
   const quotes = data.quotes || [];
@@ -212,21 +218,11 @@ function toNewsItem(entry) {
 }
 
 async function fetchNews(symbol) {
-  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
-  url.searchParams.set("q", symbol);
-  url.searchParams.set("quotesCount", "0");
-  url.searchParams.set("newsCount", String(NEWS_PER_SYMBOL));
-
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "stocktrckr/1.0",
-      "Accept": "application/json",
-    },
+  const response = await fetchYahoo("/v1/finance/search", (url) => {
+    url.searchParams.set("q", symbol);
+    url.searchParams.set("quotesCount", "0");
+    url.searchParams.set("newsCount", String(NEWS_PER_SYMBOL));
   });
-
-  if (!response.ok) {
-    throw new Error(`News provider returned ${response.status}`);
-  }
 
   const data = await response.json();
   return (data.news || []).map(toNewsItem).filter(Boolean);

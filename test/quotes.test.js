@@ -31,7 +31,12 @@ function fakeYahoo(url) {
 
 test("adds base-currency FX rates for every quote currency", async (t) => {
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (url, options) => (String(url).includes("finance.yahoo.com") ? Promise.resolve(fakeYahoo(String(url))) : realFetch(url, options));
+  globalThis.fetch = (url, options) => {
+    const target = new URL(String(url));
+    if (!target.hostname.endsWith("finance.yahoo.com")) return realFetch(url, options);
+    if (target.hostname === "query1.finance.yahoo.com") return Promise.resolve(new Response("unavailable", { status: 503 }));
+    return Promise.resolve(fakeYahoo(String(url)));
+  };
   t.after(() => {
     globalThis.fetch = realFetch;
   });
