@@ -101,6 +101,11 @@ function parseTickers(text) {
   )];
 }
 
+function announceTickerInput() {
+  const tickers = parseTickers(tickerInput.value).map((ticker) => ({ ticker, query: ticker }));
+  document.dispatchEvent(new CustomEvent("watchlist:tickers", { detail: { tickers } }));
+}
+
 function formatMoney(value, currency) {
   if (!Number.isFinite(value) || value === 0) return "-";
   return new Intl.NumberFormat(undefined, {
@@ -160,6 +165,11 @@ function setLoading(isLoading) {
 function renderQuotes(data) {
   const quotes = data.quotes || [];
   latestQuotes = new Map(quotes.map((quote) => [quote.symbol, quote]));
+  document.dispatchEvent(new CustomEvent("watchlist:tickers", {
+    detail: {
+      tickers: quotes.map((quote) => ({ ticker: quote.symbol, query: quote.providerSymbol || quote.symbol })),
+    },
+  }));
   renderMarketBrief(quotes);
   updatedAt.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleString()}` : "Updated now";
   statusText.textContent = quotes.length ? `${quotes.length} ticker${quotes.length === 1 ? "" : "s"} scanned` : "No quotes returned.";
@@ -338,10 +348,12 @@ tickerFile.addEventListener("change", async (event) => {
 
   tickerInput.value = await file.text();
   saveTickers();
+  announceTickerInput();
   statusText.textContent = `${file.name} loaded.`;
 });
 
 tickerInput.addEventListener("input", saveTickers);
+tickerInput.addEventListener("change", announceTickerInput);
 
 tickerForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -359,6 +371,7 @@ clearButton.addEventListener("click", () => {
   localStorage.removeItem(savedTickersKey);
   latestQuotes = new Map();
   selectedResearch = "";
+  document.dispatchEvent(new CustomEvent("watchlist:tickers", { detail: { tickers: [] } }));
   marketBrief.hidden = true;
   researchPanel.hidden = true;
   renderEmpty("Upload or paste ticker symbols to see a green and red market heatmap.");
@@ -383,4 +396,5 @@ window.addEventListener("DOMContentLoaded", () => {
   const savedTickers = localStorage.getItem(savedTickersKey);
   tickerInput.value = urlSymbols || savedTickers || sampleTickers;
   if (urlSymbols || savedTickers) scanTickers();
+  else announceTickerInput();
 });

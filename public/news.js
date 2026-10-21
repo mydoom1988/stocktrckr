@@ -5,8 +5,11 @@
   const list = document.querySelector("#newsList");
   const filters = document.querySelector("#newsFilters");
   const status = document.querySelector("#newsStatus");
+  const scopeLabel = document.querySelector("#newsScopeLabel");
 
   let holdings = [];
+  let portfolioHoldings = [];
+  let watchlistTickers = [];
   let items = [];
   let activeTicker = "";
   let loading = false;
@@ -53,9 +56,12 @@
     if (!holdings.length) {
       filters.hidden = true;
       status.textContent = "";
-      list.innerHTML = `<li class="news-empty">Import your portfolio to see news for your holdings.</li>`;
+      scopeLabel.textContent = "Ticker news";
+      list.innerHTML = `<li class="news-empty">Scan tickers to see their latest Yahoo and Bigdata news. Importing a portfolio is optional.</li>`;
       return;
     }
+
+    scopeLabel.textContent = watchlistTickers.length ? "Scanned tickers" : "Your holdings";
 
     const counts = new Map();
     for (const item of items) {
@@ -137,10 +143,22 @@
     render();
   });
 
+  function useBestSource() {
+    // The explicitly scanned watchlist is primary. An imported portfolio remains a convenient fallback.
+    holdings = watchlistTickers.length ? watchlistTickers : portfolioHoldings;
+    activeTicker = "";
+    load();
+  }
+
+  document.addEventListener("watchlist:tickers", (event) => {
+    watchlistTickers = event.detail.tickers || [];
+    useBestSource();
+  });
+
   // portfolio.js announces the holdings (largest first) whenever prices load or the portfolio changes.
   document.addEventListener("portfolio:holdings", (event) => {
-    holdings = event.detail.holdings;
-    load();
+    portfolioHoldings = event.detail.holdings || [];
+    useBestSource();
   });
 
   render();
