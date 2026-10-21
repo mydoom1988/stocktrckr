@@ -109,3 +109,25 @@ test("tapping cycles judgement rules and flips data rules", () => {
   assert.equal(overridden.status, "fail");
   assert.equal(nextAnswer(overridden), null, "a second tap goes back to the data");
 });
+
+test("answers the forecast and insider rules from FMP data when it exists", () => {
+  const withData = (earnings, insiders) => evaluate({ ...METRICS, earnings, insiders }, {}, "en-US");
+
+  const good = withData({ reported: 8, beats: 7, latest: {} }, { quarters: 4, acquired: 6, disposed: 2, latest: "2026 Q3" });
+  assert.equal(statusOf(good, "forecasts"), "pass");
+  assert.equal(statusOf(good, "insiderBuying"), "pass");
+  assert.equal(good.find((item) => item.id === "forecasts").detail, "Met or beat the EPS estimate in 7 of its last 8 quarters.");
+
+  const bad = withData({ reported: 8, beats: 5, latest: {} }, { quarters: 4, acquired: 1, disposed: 9, latest: "2026 Q3" });
+  assert.equal(statusOf(bad, "forecasts"), "fail", "5 of 8 is below the 75% bar");
+  assert.equal(statusOf(bad, "insiderBuying"), "fail");
+
+  assert.equal(statusOf(withData({ reported: 3, beats: 3 }, null), "forecasts"), "unknown", "too few quarters to judge");
+  assert.equal(statusOf(withData(null, null), "insiderBuying"), "unknown");
+});
+
+test("scores analyst data alone, for a company without financial statements", () => {
+  const results = evaluate({ earnings: { reported: 4, beats: 4 }, insiders: null }, {}, "en-US");
+  assert.equal(statusOf(results, "forecasts"), "pass");
+  for (const id of ["roe", "roa", "pe", "profitable", "marketCap", "debtToEquity"]) assert.equal(statusOf(results, id), "unknown", id);
+});

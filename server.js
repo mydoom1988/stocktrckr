@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const { createAuth } = require("./auth");
 const { deriveMetrics, fetchTimeseries } = require("./fundamentals");
+const { createBigdataNews, fetchInsights } = require("./providers");
 
 const PORT = process.env.PORT || 3000;
 const MAX_SYMBOLS = 50;
@@ -9,6 +10,7 @@ const NEWS_PER_SYMBOL = 8;
 const MAX_NEWS_ITEMS = 60;
 const NEWS_CACHE_MS = 10 * 60 * 1000;
 const FUNDAMENTALS_CACHE_MS = 12 * 60 * 60 * 1000;
+const INSIGHTS_CACHE_MS = 6 * 60 * 60 * 1000;
 // Revolut's German-listing codes have no Yahoo symbol of their own; these are the main listings,
 // tried first so the code can't resolve to an unrelated company.
 const REVOLUT_LISTINGS = {
@@ -225,14 +227,17 @@ async function fetchNews(symbol) {
   return (data.news || []).map(toNewsItem).filter(Boolean);
 }
 
-function createNewsHandler({ cacheMs = NEWS_CACHE_MS } = {}) {
+function createNewsHandler({ cacheMs = NEWS_CACHE_MS, fetchExtraNews = async () => [] } = {}) {
   const cache = new Map();
 
+  // Yahoo and Bigdata.com are independent: either one alone is enough to show headlines.
   async function newsFor(symbol) {
     const cached = cache.get(symbol);
     if (cached && cached.expiresAt > Date.now()) return cached.items;
 
-    const items = await fetchNews(symbol);
+    const [yahoo, extra] = await Promise.allSettled([fetchNews(symbol), fetchExtraNews(symbol)]);
+    const items = [...(yahoo.value || []), ...(extra.value || [])];
+    if (yahoo.status === "rejected" && !items.length) throw yahoo.reason;
     if (cache.size > 500) cache.clear();
     cache.set(symbol, { items, expiresAt: Date.now() + cacheMs });
     return items;
@@ -271,6 +276,53 @@ function createNewsHandler({ cacheMs = NEWS_CACHE_MS } = {}) {
       .slice(0, MAX_NEWS_ITEMS);
 
     return res.json({ items, failed, updatedAt: new Date().toISOString() });
+  };
+}
+
+// Analyst targets, earnings history and insider activity from FMP (the key lives in FMP_API_KEY).
+function createInsightsHandler({ fmpKey, logger = console, cacheMs = INSIGHTS_CACHE_MS } = {}) {
+  const cache = new Map();
+
+  return async function handleInsights(req, res) {
+    const [symbol] = parseSymbols(req.query.symbol);
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Add a valid ticker symbol." });
+    }
+
+    const cached = cache.get(symbol);
+    if (cached && cached.expiresAt > Date.now()) return res.json(cached.data);
+
+    let quote;
+    try {
+      quote = await fetchChartQuote(symbol);
+    } catch (error) {
+      return res.status(404).json({ error: `No market data found for ${symbol}.` });
+    }
+
+    const data = {
+      symbol,
+      providerSymbol: quote.providerSymbol,
+      instrumentType: quote.instrumentType,
+      currency: quote.currency,
+      price: quote.price,
+      configured: Boolean(fmpKey),
+      targets: null,
+      earnings: null,
+      insiders: null,
+      status: {},
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (fmpKey && quote.instrumentType === "EQUITY") {
+      Object.assign(data, await fetchInsights(fmpKey, quote.providerSymbol, logger));
+      // Don't hold on to a failure: a rate limit or a plan change should be retried soon.
+      if (Object.values(data.status).every((status) => status === "ok" || status === "empty")) {
+        if (cache.size > 500) cache.clear();
+        cache.set(symbol, { data, expiresAt: Date.now() + cacheMs });
+      }
+    }
+    return res.json(data);
   };
 }
 
@@ -406,7 +458,16 @@ function createApp(options = {}) {
     })
   );
   app.get("/api/quotes", handleQuotes);
-  app.get("/api/news", createNewsHandler(options.news));
+  const providerKeys = {
+    fmp: String(options.providers?.fmpKey ?? process.env.FMP_API_KEY ?? "").trim(),
+    bigdata: String(options.providers?.bigdataKey ?? process.env.BIGDATA_API_KEY ?? "").trim(),
+  };
+  const logger = options.auth?.logger || console;
+  app.get(
+    "/api/news",
+    createNewsHandler({ fetchExtraNews: createBigdataNews({ key: providerKeys.bigdata, logger }), ...options.news })
+  );
+  app.get("/api/insights", createInsightsHandler({ fmpKey: providerKeys.fmp, logger, ...options.insights }));
   app.get("/api/fundamentals", createFundamentalsHandler(options.fundamentals));
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"), { cacheControl: false });
@@ -418,6 +479,7 @@ function createApp(options = {}) {
 if (require.main === module) {
   createApp().listen(PORT, () => {
     console.log(`stocktrckr listening on port ${PORT}`);
+    console.log(`Optional data providers: FMP ${process.env.FMP_API_KEY ? "key set" : "no key"}, Bigdata.com ${process.env.BIGDATA_API_KEY ? "key set" : "no key"}`);
   });
 }
 

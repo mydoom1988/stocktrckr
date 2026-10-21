@@ -79,7 +79,7 @@
       label: "Return on equity above 15%",
       evaluate(m) {
         if (m.negativeEquity) return result("fail", "Shareholders' equity is negative.");
-        if (m.roe === null) return null;
+        if (m.roe == null) return null;
         return result(m.roe > 0.15 ? "pass" : "fail", `ROE ${percent(m.roe)} (FY${m.lastYear}).`);
       },
     },
@@ -88,7 +88,7 @@
       group: "data",
       label: "Return on assets at least 7%",
       evaluate(m) {
-        if (m.roa === null) return null;
+        if (m.roa == null) return null;
         return result(m.roa >= 0.07 ? "pass" : "fail", `ROA ${percent(m.roa)} (FY${m.lastYear}).`);
       },
     },
@@ -98,7 +98,7 @@
       label: "Debt-to-equity at most 1.5",
       evaluate(m) {
         if (m.negativeEquity) return result("fail", "Shareholders' equity is negative.");
-        if (m.debtToEquity === null) return null;
+        if (m.debtToEquity == null) return null;
         return result(m.debtToEquity <= 1.5 ? "pass" : "fail", `Debt-to-equity ${m.debtToEquity.toFixed(2)}.`);
       },
     },
@@ -107,10 +107,10 @@
       group: "data",
       label: "Cash comes from the business, not from debt",
       evaluate(m, locale) {
-        if (m.operatingCashFlow === null) return null;
+        if (m.operatingCashFlow == null) return null;
         const ocf = money(m.operatingCashFlow, m.currency, locale);
         if (m.operatingCashFlow <= 0) return result("fail", `Operating cash flow was ${ocf}.`);
-        if (m.netBorrowing === null) return result("pass", `Operating cash flow ${ocf}; no borrowing reported.`);
+        if (m.netBorrowing == null) return result("pass", `Operating cash flow ${ocf}; no borrowing reported.`);
         const met = m.operatingCashFlow > m.netBorrowing;
         return result(met ? "pass" : "fail", `Operating cash flow ${ocf} vs. net new debt ${money(m.netBorrowing, m.currency, locale)}.`);
       },
@@ -120,7 +120,7 @@
       group: "data",
       label: "Owns tangible assets",
       evaluate(m, locale) {
-        if (m.netTangibleAssets === null) return null;
+        if (m.netTangibleAssets == null) return null;
         return result(m.netTangibleAssets > 0 ? "pass" : "fail", `Net tangible assets ${money(m.netTangibleAssets, m.currency, locale)}.`);
       },
     },
@@ -138,16 +138,36 @@
       group: "data",
       label: "P/E below 15",
       evaluate(m) {
-        if (m.pe === null) {
-          return m.netIncome !== null && m.netIncome <= 0 ? result("fail", "Loss-making, so there is no P/E.") : null;
+        if (m.pe == null) {
+          return m.netIncome != null && m.netIncome <= 0 ? result("fail", "Loss-making, so there is no P/E.") : null;
         }
         return result(m.pe < 15 ? "pass" : "fail", `P/E ${m.pe.toFixed(1)}.`);
       },
     },
-    { id: "forecasts", group: "judgement", label: "Hit its previous forecasts" },
+    {
+      id: "forecasts",
+      group: "judgement",
+      label: "Hit its previous forecasts",
+      evaluate(m) {
+        const e = m.earnings;
+        if (!e || e.reported < 4) return null;
+        const met = e.beats / e.reported >= 0.75;
+        return result(met ? "pass" : "fail", `Met or beat the EPS estimate in ${e.beats} of its last ${e.reported} quarters.`);
+      },
+    },
     { id: "ceoPay", group: "judgement", label: "CEO pay tracks the company's results" },
     { id: "institutions", group: "judgement", label: "Institutions own at most 60%" },
-    { id: "insiderBuying", group: "judgement", label: "Insiders have been buying" },
+    {
+      id: "insiderBuying",
+      group: "judgement",
+      label: "Insiders have been buying",
+      evaluate(m) {
+        const i = m.insiders;
+        if (!i) return null;
+        const detail = `${i.acquired} acquired vs. ${i.disposed} disposed insider transactions over ${i.quarters} quarters (to ${i.latest}). Acquisitions include awards.`;
+        return result(i.acquired > i.disposed ? "pass" : "fail", detail);
+      },
+    },
     { id: "revenue", group: "judgement", label: "You know where the revenue comes from" },
     { id: "business", group: "judgement", label: "You understand the business" },
   ];

@@ -701,6 +701,10 @@ button:focus-visible,
   font-weight: 800;
 }
 
+.news-sentiment {
+  font-weight: 700;
+}
+
 .news-empty {
   padding: 28px 18px;
   color: var(--muted);

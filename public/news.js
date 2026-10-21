@@ -40,6 +40,7 @@
         <div class="news-meta">
           <span class="news-tickers">${escapeHtml(item.tickers.join(" · "))}</span>
           ${item.publisher ? `<span>${escapeHtml(item.publisher)}</span>` : ""}
+          ${Number.isFinite(item.sentiment) && Math.abs(item.sentiment) >= 0.15 ? `<span class="news-sentiment ${item.sentiment > 0 ? "tone-up" : "tone-down"}">${item.sentiment > 0 ? "Positive" : "Negative"} tone</span>` : ""}
           ${when ? `<time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(when)}</time>` : ""}
         </div>
       </li>
