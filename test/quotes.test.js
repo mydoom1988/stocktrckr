@@ -6,7 +6,7 @@ const PASSWORD = "quotes-test-password";
 
 // Minimal stand-ins for Yahoo's chart and search endpoints.
 const CHARTS = {
-  MU: { currency: "USD", regularMarketPrice: 110, chartPreviousClose: 100, longName: "Micron Technology, Inc." },
+  MU: { currency: "USD", regularMarketPrice: 110, chartPreviousClose: 100, regularMarketDayHigh: 112, regularMarketDayLow: 98, regularMarketVolume: 123456, fiftyTwoWeekHigh: 130, fiftyTwoWeekLow: 60, longName: "Micron Technology, Inc." },
   "RHM.DE": { currency: "EUR", regularMarketPrice: 990, chartPreviousClose: 1000, longName: "Rheinmetall AG" },
   "VOD.L": { currency: "GBp", regularMarketPrice: 70, chartPreviousClose: 70, longName: "Vodafone Group" },
   "285A.T": { currency: "JPY", regularMarketPrice: 12000, chartPreviousClose: 12000, longName: "Kioxia Holdings Corp." },
@@ -62,6 +62,12 @@ test("adds base-currency FX rates for every quote currency", async (t) => {
   const rheinmetall = data.quotes.find((quote) => quote.symbol === "RHM");
   assert.equal(rheinmetall.providerSymbol, "RHM.DE");
   assert.equal(rheinmetall.currency, "EUR");
+
+  const micron = data.quotes.find((quote) => quote.symbol === "MU");
+  assert.deepEqual(
+    { dayHigh: micron.dayHigh, dayLow: micron.dayLow, yearHigh: micron.yearHigh, yearLow: micron.yearLow, volume: micron.volume },
+    { dayHigh: 112, dayLow: 98, yearHigh: 130, yearLow: 60, volume: 123456 }
+  );
 
   const kioxia = await (await fetch(`${base}/api/quotes?symbols=KI5&base=EUR`, { headers: { Cookie: cookie } })).json();
   assert.equal(kioxia.quotes[0].providerSymbol, "285A.T", "Revolut's KI5 resolves to the Tokyo listing first");

@@ -68,7 +68,7 @@
           </div>
           <div class="news-filters" id="newsFilters" role="group" aria-label="Show news for" hidden></div>
           <ol class="news-list" id="newsList"></ol>
-          <p class="news-source">Headlines from Yahoo Finance. Links open in a new tab.</p>
+          <p class="news-source">Headlines from Yahoo Finance and Bigdata.com. Bigdata stories include tone when available. Links open in a new tab.</p>
         </section>
 
         <div class="input-grid">
@@ -109,11 +109,23 @@
             </div>
           </div>
           <div class="heatmap-shell">
+            <div class="market-brief" id="marketBrief" hidden></div>
             <div class="heatmap" id="quoteTiles">
               <div class="empty-state">Upload or paste ticker symbols to see a green and red market heatmap.</div>
             </div>
           </div>
           <p class="missing" id="missingSymbols"></p>
+        </section>
+
+        <section class="panel research" id="researchPanel" aria-labelledby="research-title" hidden>
+          <div class="result-head">
+            <div>
+              <p class="eyebrow">Company research</p>
+              <h2 id="research-title">Select a stock</h2>
+            </div>
+            <span class="research-status" id="researchStatus"></span>
+          </div>
+          <div class="research-body" id="researchBody"></div>
         </section>
 
         <section class="decision-grid" aria-label="Buy checklist">

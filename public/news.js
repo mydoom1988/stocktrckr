@@ -34,11 +34,13 @@
 
   function renderItem(item) {
     const when = relativeTime(item.publishedAt);
+    const source = String(item.id || "").startsWith("bd:") ? "Bigdata" : "Yahoo";
     return `
       <li class="news-item">
         <a class="news-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
         <div class="news-meta">
           <span class="news-tickers">${escapeHtml(item.tickers.join(" · "))}</span>
+          <span class="news-provider ${source.toLowerCase()}">${source}</span>
           ${item.publisher ? `<span>${escapeHtml(item.publisher)}</span>` : ""}
           ${Number.isFinite(item.sentiment) && Math.abs(item.sentiment) >= 0.15 ? `<span class="news-sentiment ${item.sentiment > 0 ? "tone-up" : "tone-down"}">${item.sentiment > 0 ? "Positive" : "Negative"} tone</span>` : ""}
           ${when ? `<time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(when)}</time>` : ""}

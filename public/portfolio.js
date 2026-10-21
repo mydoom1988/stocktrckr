@@ -136,6 +136,13 @@
     totals.dayChangeRatio = previousValue > 0 ? totals.dayChange / previousValue : NaN;
     // Like Revolut's account figure, the return counts cash at face value.
     totals.gainRatio = totals.cost > 0 ? totals.gain / (totals.cost + (cash || 0)) : NaN;
+    const priced = rows.filter((row) => Number.isFinite(row.valueBase)).sort((a, b) => b.valueBase - a.valueBase);
+    totals.largest = priced[0] || null;
+    totals.topThreeWeight = totals.invested > 0 ? priced.slice(0, 3).reduce((sum, row) => sum + row.valueBase, 0) / totals.invested : NaN;
+    totals.cashWeight = totals.total > 0 && cash !== null ? cash / totals.total : NaN;
+    const withReturns = priced.filter((row) => Number.isFinite(row.returnRatio));
+    totals.best = withReturns.reduce((best, row) => !best || row.returnRatio > best.returnRatio ? row : best, null);
+    totals.worst = withReturns.reduce((worst, row) => !worst || row.returnRatio < worst.returnRatio ? row : worst, null);
     return totals;
   }
 
@@ -165,9 +172,16 @@
         </div>
         <div>
           <dt>Holdings</dt>
-          <dd>${totals.count}</dd>
+          <dd>${totals.priced}/${totals.count} priced</dd>
         </div>
       </dl>
+      <div class="portfolio-insights" aria-label="Portfolio analysis">
+        <div><span>Largest position</span><strong>${totals.largest ? `${escapeHtml(totals.largest.holding.ticker)} · ${formatPercent(totals.largest.valueBase / totals.invested, false)}` : "—"}</strong></div>
+        <div><span>Top 3 concentration</span><strong>${formatPercent(totals.topThreeWeight, false)}</strong><small>${totals.topThreeWeight > 0.6 ? "Concentrated" : "Diversified across positions"}</small></div>
+        <div><span>Cash allocation</span><strong>${formatPercent(totals.cashWeight, false)}</strong></div>
+        <div><span>Best return</span><strong class="${totals.best ? tone(totals.best.returnRatio) : ""}">${totals.best ? `${escapeHtml(totals.best.holding.ticker)} · ${formatPercent(totals.best.returnRatio)}` : "—"}</strong></div>
+        <div><span>Weakest return</span><strong class="${totals.worst ? tone(totals.worst.returnRatio) : ""}">${totals.worst ? `${escapeHtml(totals.worst.holding.ticker)} · ${formatPercent(totals.worst.returnRatio)}` : "—"}</strong></div>
+      </div>
     `;
   }
 
@@ -176,6 +190,7 @@
     const name = holding.name || quote?.name || holding.ticker;
     const meta = [`${formatQuantity(holding.quantity)} ${holding.ticker}`];
     if (quote) meta.push(formatPrice(quote.price, quote.currency));
+    if (holding.cost?.amount > 0 && holding.quantity > 0) meta.push(`avg ${formatPrice(holding.cost.amount / holding.quantity, holding.cost.currency)}`);
     if (row.valueBase > 0 && total > 0) meta.push(`${((row.valueBase / total) * 100).toFixed(1)}%`);
 
     let value = "—";
@@ -183,7 +198,7 @@
     else if (quote) value = formatMoney(row.valueNative, quote.currency);
 
     const day = quote
-      ? `<span class="holding-day ${tone(quote.changePercent)}">${formatPercent(quote.changePercent / 100)} today</span>`
+      ? `<span class="holding-day ${tone(quote.changePercent)}">${Number.isFinite(row.dayChangeBase) ? `${formatSignedMoney(row.dayChangeBase)} · ` : ""}${formatPercent(quote.changePercent / 100)} today</span>`
       : `<span class="holding-day tone-flat">${loading ? "Loading price…" : "No live price"}</span>`;
     const source = quote ? `${quote.providerSymbol} · ${quote.name} · ${quote.exchange}` : holding.ticker;
 
@@ -192,6 +207,7 @@
         <div class="holding-main">
           <strong class="holding-name">${escapeHtml(name)}</strong>
           <span class="holding-meta">${escapeHtml(meta.join(" · "))}</span>
+          ${Number.isFinite(row.valueBase) && total > 0 ? `<span class="allocation-track" aria-label="${((row.valueBase / total) * 100).toFixed(1)} percent of portfolio"><span style="width:${Math.min(100, (row.valueBase / total) * 100).toFixed(1)}%"></span></span>` : ""}
         </div>
         <div class="holding-figures">
           <strong class="holding-value">${value}</strong>
