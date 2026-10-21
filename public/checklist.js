@@ -63,8 +63,14 @@
     return entry.instrumentType === "EQUITY";
   }
 
+  // Financial numbers (Yahoo) and analyst/insider data (FMP) feed the same rules.
+  function ruleData(entry) {
+    if (!entry.metrics && !entry.insights) return null;
+    return { ...(entry.metrics || {}), earnings: entry.insights?.earnings || null, insiders: entry.insights?.insiders || null };
+  }
+
   function scoreOf(entry) {
-    const results = evaluate(entry.metrics, entry.answers);
+    const results = evaluate(ruleData(entry), entry.answers);
     return { results, summary: summarize(results) };
   }
 
@@ -147,6 +153,36 @@
     `;
   }
 
+  const STATUS_NOTES = {
+    locked: "isn't included in your FMP plan",
+    rejected: "was refused: check FMP_API_KEY",
+    limit: "hit the FMP rate limit, try again later",
+    error: "couldn't be loaded",
+  };
+  const PART_NAMES = { targets: "Analyst targets", earnings: "Earnings history", insiders: "Insider activity" };
+
+  function renderInsights(entry) {
+    const insights = entry.insights;
+    if (!insights || insights.instrumentType !== "EQUITY") return "";
+    if (!insights.configured) {
+      return `<p class="section-note">Analyst targets and insider data switch on once FMP_API_KEY is set on the server.</p>`;
+    }
+
+    const lines = [];
+    const t = insights.targets;
+    if (t) {
+      // Targets are quoted in the listing's currency only for US tickers; elsewhere skip the percentage.
+      const usListing = !String(insights.providerSymbol).includes(".") && insights.currency === "USD" && insights.price > 0;
+      const upside = usListing ? ` (${t.consensus >= insights.price ? "+" : ""}${(((t.consensus - insights.price) / insights.price) * 100).toFixed(0)}% vs. price)` : "";
+      const range = t.low !== null && t.high !== null ? `, range ${t.low}–${t.high}` : "";
+      lines.push(`Analyst consensus target ${t.consensus}${upside}${range}.`);
+    }
+    for (const [part, status] of Object.entries(insights.status || {})) {
+      if (STATUS_NOTES[status]) lines.push(`${PART_NAMES[part] || part} ${STATUS_NOTES[status]}.`);
+    }
+    return lines.length ? `<p class="section-note">${lines.map(escapeHtml).join(" ")}</p>` : "";
+  }
+
   function renderScore(entry) {
     const summaryBox = body.querySelector("#checkSummary");
     const criteriaBox = body.querySelector("#checkCriteria");
@@ -171,11 +207,12 @@
       </p>
       <p class="section-note">${escapeHtml(entry.error ? `${entry.error} Answer those rules yourself.` : source)}
         <button class="link-button" type="button" data-action="refresh">Refresh</button></p>
+      ${renderInsights(entry)}
     `;
     criteriaBox.innerHTML = `
       <h3 class="check-group">From the financials</h3>
       <ul class="check-list">${results.filter((item) => item.group === "data").map(renderCriterion).join("")}</ul>
-      <h3 class="check-group">Your judgement</h3>
+      <h3 class="check-group">Judgement (filled in when data exists)</h3>
       <ul class="check-list">${results.filter((item) => item.group === "judgement").map(renderCriterion).join("")}</ul>
     `;
   }
@@ -236,13 +273,18 @@
     renderRanking();
 
     try {
-      const response = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(ticker)}`);
+      const [response, insightsResponse] = await Promise.all([
+        fetch(`/api/fundamentals?symbol=${encodeURIComponent(ticker)}`),
+        fetch(`/api/insights?symbol=${encodeURIComponent(ticker)}`).catch(() => null),
+      ]);
       if (response.status === 401) {
         window.location.assign("/login");
         return false;
       }
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Couldn't check that ticker.");
+      // Analyst and insider data is a bonus: a failure here never blocks the check.
+      const insights = insightsResponse?.ok ? await insightsResponse.json().catch(() => null) : null;
 
       const entry = entries[ticker] || { ticker, answers: {}, notes: {}, boughtOn: "" };
       Object.assign(entry, {
@@ -252,6 +294,7 @@
         metrics: data.metrics,
         error: data.error,
         fetchedAt: data.updatedAt,
+        insights: insights && { ...insights, fetchedAt: insights.updatedAt },
       });
       entries[ticker] = entry;
       saveEntries();

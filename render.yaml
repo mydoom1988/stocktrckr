@@ -13,3 +13,8 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      # Optional data providers; the app works without them.
+      - key: FMP_API_KEY
+        sync: false
+      - key: BIGDATA_API_KEY
+        sync: false

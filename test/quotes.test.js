@@ -9,7 +9,10 @@ const CHARTS = {
   MU: { currency: "USD", regularMarketPrice: 110, chartPreviousClose: 100, longName: "Micron Technology, Inc." },
   "RHM.DE": { currency: "EUR", regularMarketPrice: 990, chartPreviousClose: 1000, longName: "Rheinmetall AG" },
   "VOD.L": { currency: "GBp", regularMarketPrice: 70, chartPreviousClose: 70, longName: "Vodafone Group" },
+  "285A.T": { currency: "JPY", regularMarketPrice: 12000, chartPreviousClose: 12000, longName: "Kioxia Holdings Corp." },
+  KI5: { currency: "EUR", regularMarketPrice: 1, chartPreviousClose: 1, longName: "Unrelated company" },
   "USDEUR=X": { currency: "EUR", regularMarketPrice: 0.875 },
+  "JPYEUR=X": { currency: "EUR", regularMarketPrice: 0.006 },
   "GBPEUR=X": { currency: "EUR", regularMarketPrice: 1.2 },
 };
 
@@ -60,6 +63,10 @@ test("adds base-currency FX rates for every quote currency", async (t) => {
   assert.equal(rheinmetall.providerSymbol, "RHM.DE");
   assert.equal(rheinmetall.currency, "EUR");
 
-  const withoutBase = await (await fetch(`${base}/api/quotes?symbols=MU`, { headers: { Cookie: cookie } })).json();
+  const kioxia = await (await fetch(`${base}/api/quotes?symbols=KI5&base=EUR`, { headers: { Cookie: cookie } })).json();
+  assert.equal(kioxia.quotes[0].providerSymbol, "285A.T", "Revolut's KI5 resolves to the Tokyo listing first");
+  assert.equal(kioxia.fx.JPY, 0.006);
+
+  const withoutBase =await (await fetch(`${base}/api/quotes?symbols=MU`, { headers: { Cookie: cookie } })).json();
   assert.equal(withoutBase.fx, undefined);
 });

@@ -45,9 +45,18 @@ The News panel lists the latest Yahoo Finance headlines for your holdings, newes
 The Opportunity ranking and Thesis tracker score stocks against a fixed set of buying rules. Check one ticker, or tap **Check my holdings**.
 
 - **From the financials** (Yahoo Finance annual data, filled in automatically): profitable every year for 5+ years, operating cash flow growing for 7+ years, earnings per share growing at least 3% a year, ROE above 15%, ROA at least 7%, debt-to-equity at most 1.5, cash coming from the business rather than new debt, positive net tangible assets, market cap of at least $500 million, and P/E below 15. Yahoo usually keeps about four years, so the multi-year rules say when they could only check a shorter window.
-- **Your judgement** (you answer): whether it hit its previous forecasts, whether CEO pay tracks results, institutional ownership of at most 60%, whether insiders have been buying, and whether you understand the business and where its revenue comes from.
+- **Your judgement** (you answer, except where FMP data fills it in): whether it hit its previous forecasts, whether CEO pay tracks results, institutional ownership of at most 60%, whether insiders have been buying, and whether you understand the business and where its revenue comes from.
 
 Tap a rule to answer or override it. A verdict appears only once the open rules can no longer change it. Each stock also keeps your thesis, buy zone, sell rule and risks, and a purchase date that starts a 3-year review reminder. Funds and ETFs aren't scored. For a secondary listing without statements, check the main listing's Yahoo symbol instead (for example `285A.T`). Everything is saved in the browser.
+
+## Optional data providers
+
+Two keys switch on extra data. Set them in Render under **Environment**; the app reads them on the server only and never sends them to the browser, logs them or stores them in the repository. Without a key the app keeps working on Yahoo Finance alone.
+
+- `FMP_API_KEY` ([Financial Modeling Prep](https://site.financialmodelingprep.com/)): analyst consensus targets, plus automatic answers for the checklist's "hit its previous forecasts" (EPS beats over the last 8 quarters, 75% bar) and "insiders have been buying" (acquired vs. disposed transactions over 4 quarters, which includes awards) rules. Each part is fetched on its own, and anything your plan doesn't include is named in the Thesis tracker instead of failing. The free plan covers US tickers only.
+- `BIGDATA_API_KEY` ([Bigdata.com](https://bigdata.com)): adds recent headlines from its news index to the News panel, tagged Positive or Negative when the tone is clear. Each holding is matched to a public company by its exact ticker listing, and a failure leaves the Yahoo headlines untouched.
+
+The server logs once at start-up whether each key is present (never the key itself), and once per provider if it later refuses requests.
 
 ## Local development
 

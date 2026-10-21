@@ -68,7 +68,14 @@ const sectorMap = {
   PDD: "International",
   TSM: "International",
   EUNL: "ETF",
+  VGLA: "ETF",
   NBIS: "Technology",
+  SNDK: "Technology",
+  KI5: "Technology",
+  MEI: "Technology",
+  SPCX: "Industrials",
+  CDNA: "Healthcare",
+  OBIO: "Healthcare",
 };
 
 function escapeHtml(value) {
