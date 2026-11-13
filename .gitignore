@@ -2,3 +2,7 @@ node_modules/
 .env
 npm-debug.log*
 .DS_Store
+
+# Output of trading skills: may contain portfolio data, never commit
+reports/
+state/

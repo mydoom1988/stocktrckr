@@ -127,6 +127,22 @@ function formatCompact(value, suffix = "") {
   return `${new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value)}${suffix}`;
 }
 
+// Large amounts such as market caps read as $1.01T instead of $1,013,831,519,400.00.
+function formatMoneyCompact(value, currency) {
+  if (!Number.isFinite(value) || value === 0) return "-";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD",
+      notation: "compact",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch (error) {
+    return formatCompact(value, ` ${currency || ""}`.trimEnd());
+  }
+}
+
 function formatRatio(value) {
   return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
 }
@@ -272,7 +288,7 @@ async function selectResearch(symbol) {
           ${metric("Day range", `${formatMoney(quote.dayLow, quote.currency)} – ${formatMoney(quote.dayHigh, quote.currency)}`)}
           ${metric("Volume", formatCompact(quote.volume))}
           ${metric("Exchange", quote.exchange || "—", quote.providerSymbol || "")}
-          ${metric("Market cap", Number.isFinite(data.marketCapUsd) ? formatMoney(data.marketCapUsd, "USD") : data.marketCap ? formatMoney(data.marketCap.value, data.marketCap.currency) : "—")}
+          ${metric("Market cap", Number.isFinite(data.marketCapUsd) ? formatMoneyCompact(data.marketCapUsd, "USD") : data.marketCap ? formatMoneyCompact(data.marketCap.value, data.marketCap.currency) : "—")}
         </div>
       </div>
       <div class="research-section">

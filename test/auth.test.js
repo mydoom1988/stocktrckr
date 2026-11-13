@@ -230,6 +230,9 @@ describe("password protection", () => {
     const response = await get(server, "/login");
     assert.match(response.headers.get("content-security-policy"), /script-src 'self'/);
     assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+    // Scripts stay strictly same-origin; only style attributes (progress bars) are allowed inline.
+    assert.match(response.headers.get("content-security-policy"), /style-src 'self'; style-src-attr 'unsafe-inline'/);
+    assert.doesNotMatch(response.headers.get("content-security-policy"), /script-src[^;]*unsafe/);
     assert.equal(response.headers.get("x-frame-options"), "DENY");
     assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
     assert.equal(response.headers.get("x-powered-by"), null);
