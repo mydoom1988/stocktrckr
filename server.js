@@ -35,6 +35,9 @@ const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
+  // Bars and gauges set their width with a style attribute. This allows style attributes only: <style>
+  // elements stay blocked, and style attributes cannot run script.
+  "style-src-attr 'unsafe-inline'",
   "img-src 'self' data:",
   "connect-src 'self'",
   "object-src 'none'",
