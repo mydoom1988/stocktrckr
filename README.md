@@ -58,6 +58,10 @@ Two keys switch on extra data. Set them in Render under **Environment**; the app
 
 The server logs once at start-up whether each key is present (never the key itself), and once per provider if it later refuses requests.
 
+## Trading skills for Claude sessions
+
+`.claude/skills/` holds 14 skills from [claude-trading-skills](https://github.com/tradermonty/claude-trading-skills) (MIT): news and market-regime analysis, position sizing, scenario analysis, earnings and economic calendars, sector and theme strength, and market-top and bubble checks. Claude Code sessions on this repository can use them; the web app does not. See `.claude/skills/THIRD_PARTY.md` for what each needs, what was left out and why, and how to update. Skill outputs go to `reports/` and `state/`, which are git-ignored because they can contain portfolio data.
+
 ## Local development
 
 ```bash
